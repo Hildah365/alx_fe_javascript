@@ -84,6 +84,12 @@ function createAddQuoteForm() {
     importInput.onchange = importFromJsonFile;
     formDiv.appendChild(importInput);
     
+    // Add sync button
+    const syncButton = document.createElement('button');
+    syncButton.textContent = 'Sync with Server';
+    syncButton.onclick = syncWithServer;
+    formDiv.appendChild(syncButton);
+    
     document.body.appendChild(formDiv);
 }
 
@@ -138,6 +144,38 @@ function importFromJsonFile(event) {
     }
 }
 
+function showNotification(message) {
+    const notif = document.getElementById('notification');
+    notif.textContent = message;
+    notif.style.display = 'block';
+    setTimeout(() => notif.style.display = 'none', 5000);
+}
+
+function syncWithServer() {
+    fetch('https://jsonplaceholder.typicode.com/posts')
+        .then(response => response.json())
+        .then(data => {
+            const serverQuotes = data.slice(0, 10).map(post => ({ text: post.title, category: 'Server' }));
+            // Check for conflicts: if local quotes differ from server
+            const hasConflict = quotes.length !== serverQuotes.length || 
+                !quotes.every((q, i) => q.text === serverQuotes[i]?.text);
+            if (hasConflict) {
+                // Server takes precedence
+                quotes = serverQuotes;
+                saveQuotes();
+                populateCategories();
+                displayQuotes(quotes);
+                showNotification('Data synced with server. Local changes were overwritten due to conflict.');
+            } else {
+                showNotification('Data is up to date with server.');
+            }
+        })
+        .catch(error => {
+            console.error('Sync error:', error);
+            showNotification('Failed to sync with server.');
+        });
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     loadQuotes(); // Load quotes from local storage
@@ -146,4 +184,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('newQuote').addEventListener('click', showQuotes);
     showQuotes(); // Show all quotes initially
     filterQuotes(); // Apply initial filter
+    // Periodic sync every 30 seconds
+    setInterval(syncWithServer, 30000);
 });
